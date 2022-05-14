@@ -1,81 +1,91 @@
 import streamlit as st
-import pandas as pd
-import numpy as np
-import seaborn as sns
-import matplotlib.pyplot as plt
-import altair as alt
-
 with st.echo(code_location='below'):
-    """
-    ## Hello, World!
-    """
+    import pandas as pd
+    import matplotlib.pyplot as plt
+    import seaborn as sns
+    import plotly.express as px
 
+    name = st.text_input("Name", key="name", value="???")
+    st.write(f"### Hello, {name}!")
 
-    def print_hello(name="World"):
-        st.write(f"### Hello, {name}!")
+    def get_data():
+        data_url = "https://raw.githubusercontent.com/scientia-ipsa/pokemon_dataset/e078992fd3562d5a7ca51fdcf30976db4328c67c/pokemon.csv"
+        return pd.read_csv(data_url)
 
+    # Выбор типа - график между защитой/атакой.
+    st.title('Choose your pokemon type!')
 
-    name = st.text_input("Your name", key="name", value="Anonymous")
-    print_hello(name)
-
-    """
-    ## Добавим графики
-    Чтобы заработали библиотеки seaborn и altair, нужно добавить в проект файл 
-    `requirements.txt` с такими строчками:
-    
-        seaborn
-        altair
-    """
-
-
-    a = st.slider("a")
-    x = np.linspace(-6, 6, 500)
-    df = pd.DataFrame(dict(x=x, y=np.sin(a * x)))
-    fig, ax = plt.subplots()
-    sns.lineplot(data=df, x="x", y="y", ax=ax)
+    st.write("Here you can choose the type of the pokemon and see the relation between the defense and attack of the pokemons of this type!")
+    df = get_data()
+    a = df.sort_values(by=['defense'])
+    parameter = st.selectbox("Type", a['type1'].unique())
+    fig, ax=plt.subplots()
+    sns.lineplot(x='defense', y = 'attack', data=a.loc[a['type1'] == parameter], ax=ax)
     st.pyplot(fig)
 
-    """
-    ## Немного анализа данных
-    """
+    # Фильтрация покемонов по скорости.
 
+    st.title('Choose the speed!')
 
-    @st.cache
-    def get_data():
-        data_url = (
-            "https://github.com/Godoy/imdb-5000-movie-dataset/raw/"
-            "master/data/movie_metadata.csv"
-        )
-        return (
-            pd.read_csv(data_url)
-            .dropna(subset=["title_year"])
-            .assign(
-                title_year=lambda x: pd.to_datetime(
-                    x["title_year"], format="%Y"
-                )
-            )
-        )
+    st.write("Here you can choose the speed of a pokémon. In the speed-attack axis will be all pokémon that have a speed no greater than the set one.")
+    speed = st.slider('Speed',min_value=0, max_value=200)
+    b=df.sort_values(by=['speed'])
+    c = b.loc[b['speed'] <= speed]
+    fig, ax=plt.subplots(1,1, figsize=(10,10))
+    sns.scatterplot(data=c, x="speed", y="attack",hue = "type1", style="type1", ax=ax, edgecolor="black")
+    st.pyplot(fig)
+    c
 
+    # Pokemon distribution.
 
-    df = get_data()
+    st.title('Interactive graph')
 
-    director = st.selectbox(
-        "Director", df["director_name"].value_counts().iloc[:10].index
-    )
+    st.write("In this diagram you can see the distribution of all chosen pokémon. Let's take a look how rare they are!")
 
-    df_selection = df[lambda x: x["director_name"] == director]
-    df_selection
+    options = st.multiselect('Choose types',['bug','normal','water','grass', 'rock', 'ground', 'fairy', 'ghost', 'fire', 'psychic', 'dark', 'steel', 'poison', 'ice', 'fighting', 'electric', 'dragon', 'flying'], ['normal'])
 
-    chart = (
-        alt.Chart(df_selection)
-        .mark_circle()
-        .encode(x=alt.X("title_year:T"), y="imdb_score", tooltip="movie_title")
-    )
+    ax=plt.subplots()
 
-    st.altair_chart(
-        (
-            chart
-            + chart.transform_loess("title_year", "imdb_score").mark_line()
-        ).interactive()
-        # .transform_loess добавляет сглаживающую кривую
-    )
+    labels = options
+    values = []
+    sum = 0
+    for element in labels:
+        sum += len(df.loc[df['type1'] == element].index)
+    for element in labels:
+        values.append((len(df.loc[df['type1'] == element].index))/sum)
+
+    fig = px.pie(values=values, names=labels)
+    st.plotly_chart(fig)
+
+    # Horizontal boxplot with observations
+
+    st.title('Some boxplot data')
+
+    st.write("Here you can find the graph of horizontal boxplot with pokemon observations")
+
+    fig, ax=plt.subplots()
+    x=[df['speed'], df['hp'], df['defense']]
+    df = pd.DataFrame(x, index=['Speed', "HP", 'Defense'])
+
+    df.T.boxplot(vert=False)
+    plt.subplots_adjust(left=0.25)
+    st.pyplot(fig)
+
+    #One more interactive graph:
+
+    st.title('Animation! One more interactive graph!')
+    st.write("Here you can choose the pokemon generation and see their characteristics!")
+    new = get_data()
+    ax=plt.subplots()
+    fig = px.scatter(new, x="attack", y="hp", animation_frame="generation", animation_group="name",
+           size="defense", color="type1", hover_name="name", size_max=35, range_x=[0,200], range_y=[0,200],
+           )
+    st.plotly_chart(fig)
+
+    st.write("Press the lucky button!")
+
+    start_btn = st.button('Start')
+
+    if start_btn:
+        st.balloons()
+        st.snow()
